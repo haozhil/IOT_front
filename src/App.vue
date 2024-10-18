@@ -1,15 +1,49 @@
 <template>
+  <el-alert
+    title="Current temperature is too high!"
+    type="error"
+    center
+    v-if="temperature > maxTemp"
+  />
   <div class="header">
     <img
       src="./assets/img/medicine-box.png"
       alt="Cartoon Medicine Box"
       class="medicine-box"
     />
-    <div class="temperature">Temperature: {{ temperature }}</div>
+    <div class="temperature">
+      Temperature: {{ temperature }}
+      <div class="maxTemperature">Max Temperature allowed: {{ maxTemp }}</div>
+      <el-button
+        type="success"
+        style="margin-left: 16px"
+        @click="drawer = true"
+      >
+        Set Max Temperature
+      </el-button>
+    </div>
+
+    <!-- Drawer -->
+    <el-drawer v-model="drawer" title="Set Temperature" direction="ltr">
+      <!-- Slider 组件 -->
+      <div class="slider-demo-block">
+        <el-slider v-model="value" :min="10" :max="60" show-input />
+      </div>
+
+      <!-- Submit 按钮 -->
+      <el-button
+        type="primary"
+        style="margin-top: 20px"
+        :loading="loading"
+        @click="submitValue"
+      >
+        {{ loading ? "Submitting ..." : "Submit" }}
+      </el-button>
+    </el-drawer>
     <h1>Smart Medicine Box</h1>
     <div class="team-info">
       <p>Development Team: Group 1</p>
-      <p>Contact: team@example.com</p>
+      <p>Contact: 26184956@gmail.com</p>
     </div>
   </div>
   <div class="main-content">
@@ -38,16 +72,32 @@
             class="medicine-box"
           />
         </div>
+
         <div class="med_info">
-          <div class="med_content">
+          <el-empty
+            description="No medication data"
+            :image-size="100"
+            v-if="getPillById(1).initialQuantity == null"
+          />
+          <div class="med_content" v-else>
             <h2>{{ getPillById(1).name }}</h2>
             <p>Next Dose Time: {{ nextReminder_1 }}</p>
             <p>Dose Amount: {{ getPillById(1).doseAmount }}</p>
-            <p>Remaining Quantity: {{ getPillById(1).initialQuantity }}</p>
+            <p>Remaining Quantity: {{ RemainWeight1 }}</p>
+            <p>Last taken time: {{ lastTimeTaken1 }}</p>
           </div>
-          <button class="button med_button" @click="openModal(1)">
+          <!-- Update 按钮和下拉菜单 -->
+          <el-dropdown split-button type="primary" @click="preOrNew(1)">
             Update
-          </button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <!-- 下拉菜单项：查看历史吃药记录 -->
+                <el-dropdown-item @click="showHistory = true">
+                  View Medication History
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </div>
 
@@ -61,16 +111,109 @@
           />
         </div>
         <div class="med_info">
-          <div class="med_content">
+          <el-empty
+            description="No medication data"
+            :image-size="100"
+            v-if="getPillById(2).initialQuantity == null"
+          />
+          <div class="med_content" v-else>
             <h2>{{ getPillById(2).name }}</h2>
             <p>Next Dose Time: {{ nextReminder_2 }}</p>
             <p>Dose Amount: {{ getPillById(2).doseAmount }}</p>
-            <p>Remaining Quantity: {{ getPillById(2).initialQuantity }}</p>
+            <p>Remaining Quantity: {{ RemainWeight2 }}</p>
+            <p>Last taken time: {{ lastTimeTaken2 }}</p>
           </div>
-          <button class="button med_button" @click="openModal(2)">
+          <!-- Update 按钮和下拉菜单 -->
+          <el-dropdown split-button type="primary" @click="preOrNew(2)">
             Update
+            <template #dropdown>
+              <el-dropdown-menu>
+                <!-- 下拉菜单项：查看历史吃药记录 -->
+                <el-dropdown-item @click="showHistory2 = true">
+                  View Medication History
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
+      </div>
+    </div>
+
+    <!-- 弹出窗口 -->
+    <el-dialog
+      v-model="showHistory"
+      title="Historical record of remaining medication quantity"
+      width="50%"
+      center
+    >
+      <div class="chart-container">
+        <div
+          id="myChart"
+          ref="myChart"
+          style="width: 600px; height: 400px"
+        ></div>
+      </div>
+      <template #footer>
+        <el-button @click="showHistory = false">Close</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 弹出窗口2 -->
+    <el-dialog
+      v-model="showHistory2"
+      title="Historical record of remaining medication quantity"
+      width="50%"
+      center
+    >
+      <div class="chart-container">
+        <div
+          id="myChart2"
+          ref="myChart2"
+          style="width: 600px; height: 400px"
+        ></div>
+      </div>
+      <template #footer>
+        <el-button @click="showHistory2 = false">Close</el-button>
+      </template>
+    </el-dialog>
+
+    <div class="modal" v-if="showModal">
+      <div class="modal-content">
+        <h2>
+          Are you looking to update the information of the current medication or
+          switch to a new one?
+        </h2>
+        <div class="modal-buttons">
+          <button
+            :class="{ selected: selectedOption === 'update' }"
+            @click="
+              previousPill = true;
+              this.selectedOption = 'update';
+            "
+          >
+            Update Current Medication
+          </button>
+          <button
+            :class="{ selected: selectedOption === 'switch' }"
+            @click="
+              previousPill = false;
+              this.selectedOption = 'switch';
+            "
+          >
+            Add a New Medication
           </button>
         </div>
+        <button :disabled="selectedOption === null" @click="openModal">
+          Confirm
+        </button>
+        <button
+          @click="
+            showModal = false;
+            resetSelection();
+          "
+        >
+          Cancel
+        </button>
       </div>
     </div>
 
@@ -79,7 +222,7 @@
       <div class="modal-content">
         <h2>Update</h2>
         <form @submit.prevent="submitMedicationForm">
-          <div class="form-group">
+          <div class="form-group" v-if="!previousPill">
             <label for="med_name">Medicine name</label>
             <input
               type="text"
@@ -89,7 +232,7 @@
               required
             />
           </div>
-          <div class="form-group">
+          <div class="form-group" v-if="!previousPill">
             <label for="quantity">Quantity</label>
             <input
               type="number"
@@ -100,26 +243,25 @@
               required
             />
           </div>
+
           <div class="form-group">
-            <label :for="'time' + index">Dosage Time</label>
-            <div class="checkbox-grid">
-              <div
-                v-for="(hour, index) in hours"
-                :key="index"
-                class="checkbox-item"
-              >
-                <input
-                  type="checkbox"
-                  :id="'time' + index"
-                  :value="hour"
-                  v-model="tempMedicationForm.doseTimes"
-                />
-                <label :for="'time' + index">{{ hour }}</label>
-              </div>
-            </div>
-          </div>
-          <div class="form-group">
-            <!-- Display user's selecting time -->
+            <p>Dosage Time</p>
+
+            <!-- 单个时间点选择器，带上秒 -->
+            <el-time-picker
+              v-model="selectedTime"
+              placeholder="Select time"
+              format="HH:mm:ss"
+              value-format="HH:mm:ss"
+              :picker-options="{
+                selectableRange: '00:00:00 - 23:59:59',
+              }"
+            />
+
+            <!-- 添加时间点按钮 -->
+            <button @click="addTime" :disabled="!selectedTime">Add Time</button>
+
+            <!-- 显示用户选择的时间点 -->
             <div class="selected-times">
               <p>Selected Times:</p>
               <p v-if="tempMedicationForm.doseTimes.length > 0">
@@ -128,6 +270,7 @@
               <strong v-else>No times selected</strong>
             </div>
           </div>
+
           <div class="form-group">
             <label for="doseAmount">Single Dose Amount</label>
             <input
@@ -204,10 +347,42 @@
 
 <script>
 import axios from "axios";
+import { ElMessage } from "element-plus";
+import * as echarts from "echarts";
+// import MyChart from "./components/MyChart.vue";
 
 export default {
+  // components: {
+  //   MyChart,
+  // },
   data() {
     return {
+      maxTemp: null,
+      //LastTimeTaken
+      lastTimeTaken1: null,
+      lastTimeTaken2: null,
+      //Store objects of pill1 and 2
+      dataRecords1: {
+        lastTimeTaken: [],
+        RemainQuantity: [],
+      },
+      dataRecords2: {
+        lastTimeTaken: [],
+        RemainQuantity: [],
+      },
+      trigger: 0,
+
+      //Control drawer
+      showHistory: false,
+      showHistory2: false,
+
+      drawer: false,
+      loading: false, // 控制按钮的加载状态
+      value: 27,
+      showModal: false,
+      // 用于跟踪用户选择的按钮
+      selectedOption: null,
+      previousPill: null,
       // Control the modal display state
       isModalOpen: false, // Controls the medication information modal
       isUserInfoModalOpen: false, // Controls the user information modal
@@ -244,6 +419,8 @@ export default {
         "22:00",
         "23:00",
       ], // List of time slots
+      selectedTime: null, // 当前选择的时间
+      times: [], // 存储所有选择的时间
 
       // User form data (used for final submission)
       user: {
@@ -266,27 +443,246 @@ export default {
         quantity: "",
         doseAmount: "",
         doseTimes: [], // Stores the dose times selected by the user
+        singleWeight: "",
       },
+
+      pillWeight: [0, 0],
+      pillWeight_t: [0, 1],
+      RemainWeight1: null, // 初始化为空值
+      RemainWeight2: null, // 初始化为空值
     };
   },
   mounted() {
-    this.fetchPills();
-    this.fetchTemperature();
-    // Periodically refresh data
-    // setInterval(this.fetchTemperature, 5000); // Request temperature every 5 seconds
+    // this.updateChart();
+    // this.initChart();
+    this.fetchPills(); // 先获取药品数据
+    this.fetchTemperature(); // 获取温度
+
+    // 立即调用 fetchCurrentWeight() 获取当前重量并更新 RemainWeight1 和 RemainWeight2
+    this.fetchCurrentWeight();
+    this.fetchMaxTemperature();
+
+    // 每5秒刷新一次重量和温度
+    setInterval(this.fetchCurrentWeight, 5000);
+    setInterval(this.fetchTemperature, 5000);
+    setInterval(this.fetchLastTakenTime, 5000);
+  },
+  watch: {
+    lastTimeTaken1: {
+      handler() {
+        this.fetchCurrentWeight();
+        setTimeout(() => {
+          this.updateData(1);
+          console.log(this.dataRecords1);
+        }, 2000); // 5000 毫秒 = 5 秒
+      },
+    },
+    lastTimeTaken2: {
+      handler() {
+        this.fetchCurrentWeight();
+        setTimeout(() => {
+          this.updateData(2);
+          console.log(this.dataRecords2);
+        }, 2000); // 5000 毫秒 = 5 秒
+      },
+    },
+    trigger: {
+      handler() {
+        console.log("Success!");
+      },
+    },
+    showHistory(newValue) {
+      if (newValue) {
+        this.updateChart();
+      }
+    },
+    showHistory2(newValue) {
+      if (newValue) {
+        this.updateChart2();
+      }
+    },
   },
   methods: {
+    updateChart() {
+      this.$nextTick(() => {
+        // Ensure that the DOM element is available
+        if (!document.getElementById("myChart")) {
+          console.error("Chart DOM element not found");
+          return;
+        }
+        const chartContainer = document.getElementById("myChart");
+        // 创建ECharts实例
+        const chart = echarts.init(chartContainer);
+
+        const options = {
+          tooltip: {},
+          legend: {},
+          xAxis: {
+            data: this.dataRecords1.lastTimeTaken,
+          },
+          yAxis: {},
+          series: [
+            {
+              name: "Remaining Quantity",
+              type: "line",
+              data: this.dataRecords1.RemainQuantity,
+            },
+          ],
+        };
+        console.log("is true");
+        // 使用配置项绘制图表
+        chart.setOption(options);
+      });
+    },
+    updateChart2() {
+      this.$nextTick(() => {
+        // Ensure that the DOM element is available
+        if (!document.getElementById("myChart2")) {
+          console.error("Chart DOM element not found");
+          return;
+        }
+        const chartContainer = document.getElementById("myChart2");
+        // 创建ECharts实例
+        const chart = echarts.init(chartContainer);
+
+        const options = {
+          tooltip: {},
+          legend: {},
+          xAxis: {
+            data: this.dataRecords2.lastTimeTaken,
+          },
+          yAxis: {},
+          series: [
+            {
+              name: "Remaining Quantity",
+              type: "line",
+              data: this.dataRecords2.RemainQuantity,
+            },
+          ],
+        };
+        console.log("is true");
+        // 使用配置项绘制图表
+        chart.setOption(options);
+      });
+    },
+    updateData(i) {
+      if (i == 1) {
+        this.dataRecords1.lastTimeTaken.push(this.lastTimeTaken1);
+        this.dataRecords1.RemainQuantity.push(this.RemainWeight1);
+
+        // 保证数组长度不超过6个
+        if (this.dataRecords1.lastTimeTaken.length > 6) {
+          this.dataRecords1.lastTimeTaken.shift(); // 删除最早的记录
+          this.dataRecords1.RemainQuantity.shift();
+        }
+      } else {
+        this.dataRecords2.lastTimeTaken.push(this.lastTimeTaken2);
+        this.dataRecords2.RemainQuantity.push(this.RemainWeight2);
+
+        // 保证数组长度不超过6个
+        if (this.dataRecords2.lastTimeTaken.length > 6) {
+          this.dataRecords2.lastTimeTaken.shift(); // 删除最早的记录
+          this.dataRecords2.RemainQuantity.shift();
+        }
+      }
+      console.log(this.dataRecords1);
+      this.trigger++;
+      console.log(this.trigger);
+    },
+    // 提交滑块的值并显示 loading
+    submitValue() {
+      this.loading = true;
+      // 模拟提交过程
+      // 发送滑块值到后端
+      axios
+        .post("/updateMaxTemperature", {
+          maxTemperature: this.value, // 传递滑块中的温度值
+        })
+        .then(() => {
+          ElMessage({
+            message: "Value submitted successfully!",
+            type: "success",
+          });
+          this.drawer = false; // 提交后关闭抽屉
+          this.fetchMaxTemperature();
+        })
+        .catch(() => {
+          ElMessage({
+            message: "Failed to submit the value",
+            type: "error",
+          });
+        })
+        .finally(() => {
+          this.loading = false; // 完成后停止 loading
+        });
+    },
+
+    fetchCurrentWeight() {
+      // 从后端获取当前重量
+      axios
+        .get("/getCurrentWeight")
+        .then((response) => {
+          const weights = response.data; // 假设返回类似 [120.0, 180.0] 的数组
+
+          // 确保 pills 数组有数据并且 weights 数组有相应的长度
+          if (this.pills.length === weights.length) {
+            // 将每个 weight 赋值给对应的药品
+            this.pills.forEach((pill, index) => {
+              pill.weight = weights[index]; // 为每个药物更新 weight 属性
+            });
+            this.calculateRemainingWeight();
+          } else {
+            console.error("Pills array and weights array length mismatch");
+          }
+        })
+        .catch((error) => {
+          console.error("Error fetching current weight:", error);
+        });
+    },
+
+    fetchLastTakenTime() {
+      axios
+        .get("/getLastTimeTaken")
+        .then((response) => {
+          const lastTimeTaken = response.data;
+          this.lastTimeTaken1 = lastTimeTaken[0];
+          this.lastTimeTaken2 = lastTimeTaken[1];
+        })
+        .catch((error) => {
+          console.error("Error fetching lastTimeTaken:", error);
+        });
+    },
     fetchTemperature() {
       axios
         .get("/tempServlet")
         .then((response) => {
           // Directly retrieve data from response.data, axios automatically parses JSON
-          this.temperature = response.data.temperature;
+          this.temperature = response.data;
         })
         .catch((error) => {
           // Handle request errors
           console.error("Error fetching temperature:", error);
         });
+    },
+    fetchMaxTemperature() {
+      axios
+        .get("/queryMaxtemp")
+        .then((response) => {
+          this.maxTemp = response.data;
+        })
+        .catch((error) => {
+          // Handle request errors
+          console.error("Error fetching temperature:", error);
+        });
+    },
+    addTime() {
+      if (this.selectedTime) {
+        // 防止重复添加相同的时间
+        if (!this.tempMedicationForm.doseTimes.includes(this.selectedTime)) {
+          this.tempMedicationForm.doseTimes.push(this.selectedTime); // 将选择的时间添加到数组中
+        }
+        this.selectedTime = null; // 清空时间选择器
+      }
     },
     fetchPills() {
       axios
@@ -294,11 +690,34 @@ export default {
         .then((response) => {
           this.pills = response.data; // Store the returned Pill array into pills
 
+          this.pills.forEach((pill) => {
+            if (typeof pill.doseTimes === "string") {
+              pill.doseTimes = JSON.parse(pill.doseTimes); // 将 JSON 字符串转换为数组
+            }
+          });
+
           this.calculateNextReminder(); // After fetching data, calculate the next reminder time for each medication
         })
         .catch((error) => {
           console.error("Error fetching pills:", error);
         });
+    },
+    calculateRemainingWeight() {
+      // 获取 pill 对象并计算剩余重量
+      const pill1 = this.getPillById(1);
+      const pill2 = this.getPillById(2);
+
+      if (pill1 && pill1.weight > 0 && pill1.singleWeight > 0) {
+        this.RemainWeight1 = Math.round(pill1.weight / pill1.singleWeight);
+      } else {
+        this.RemainWeight1 = 0; // 或者其他默认值
+      }
+
+      if (pill2 && pill2.weight > 0 && pill2.singleWeight > 0) {
+        this.RemainWeight2 = Math.round(pill2.weight / pill2.singleWeight);
+      } else {
+        this.RemainWeight2 = 0; // 或者其他默认值
+      }
     },
     getPillById(id) {
       // Get pill object by id
@@ -358,35 +777,76 @@ export default {
 
       return nextReminder;
     },
-    // Open the medication information modal and initialize form data
-    openModal(medicationId) {
+    preOrNew(medicationId) {
       this.tempMedicationForm.id = medicationId;
-      this.tempMedicationForm.name = "";
-
-      // Reset form data to empty to avoid showing preset values
-      this.tempMedicationForm.quantity = "";
-      this.tempMedicationForm.doseAmount = "";
-      this.tempMedicationForm.doseTimes = [];
-      this.isModalOpen = true;
+      this.showModal = true;
+    },
+    // Open the medication information modal and initialize form data
+    openModal() {
+      if (this.selectedOption === null) {
+        alert("Please select an option before confirming!");
+      } else if (this.selectedOption === "update") {
+        this.showModal = false;
+        const pill = this.getPillById(this.tempMedicationForm.id);
+        this.tempMedicationForm.name = pill.name;
+        this.tempMedicationForm.quantity = pill.initialQuantity;
+        this.tempMedicationForm.singleWeight = this.calculatePillWeight(
+          pill.id
+        ); // 调用计算函数
+        this.tempMedicationForm.doseAmount = "";
+        this.tempMedicationForm.doseTimes = [];
+        this.isModalOpen = true;
+      } else {
+        this.showModal = false;
+        this.tempMedicationForm.name = "";
+        // 重置表单数据，避免使用之前的数据
+        this.tempMedicationForm.quantity = "";
+        this.tempMedicationForm.singleWeight = 0; // 初始化为 0
+        this.tempMedicationForm.doseAmount = "";
+        this.tempMedicationForm.doseTimes = [];
+        this.isModalOpen = true;
+        if (this.tempMedicationForm.id == 1) {
+          this.lastTimeTaken1 = null;
+        } else {
+          this.lastTimeTaken2 = null;
+        }
+      }
     },
     // Close the medication information modal
     closeModal() {
       this.isModalOpen = false;
+      this.resetSelection(); // 重置选择状态
+    },
+    resetSelection() {
+      this.selectedOption = null; // 重置按钮的选择状态
+      this.previousPill = null; // 重置之前选中的状态
     },
     // Submit the medication information form
     submitMedicationForm() {
+      console.log("lastTaken1 : " + this.lastTimeTaken1);
       // Assume the form data is packaged into a medication object pill
       const pill = {
         id: this.tempMedicationForm.id,
         name: this.tempMedicationForm.name,
         initialQuantity: this.tempMedicationForm.quantity,
-        doseTimes: this.tempMedicationForm.doseTimes, // Selected times
+        doseTimes: JSON.stringify(this.tempMedicationForm.doseTimes), // Selected times
         doseAmount: this.tempMedicationForm.doseAmount,
+        singleWeight:
+          this.tempMedicationForm.singleWeight ||
+          this.calculatePillWeight(this.tempMedicationForm.id), // 确保传递正确的值
+        lastTimeTaken:
+          this.tempMedicationForm.id == 1
+            ? this.lastTimeTaken1
+            : this.lastTimeTaken2,
       };
 
       // Call the backend API to send the pill object data
       axios
-        .post("/updatePill", pill)
+        .post("/updatePill", pill, {
+          headers: {
+            "Content-Type": "application/json", // 指定请求类型
+          },
+        })
         .then((response) => {
           console.log("Pill information updated successfully:", response.data);
           this.closeModal(); // Close the modal
@@ -398,6 +858,23 @@ export default {
           // Handle errors here, such as displaying error messages to the user
           this.closeModal;
         });
+    },
+    calculatePillWeight(id) {
+      const pill = this.getPillById(id);
+
+      // 如果是新药物，且没有 previousPill 标记，则计算新的药物重量
+      if (!this.previousPill) {
+        // 确保初始数量和重量有效
+        if (this.tempMedicationForm.quantity > 0 && pill.weight > 0) {
+          return pill.weight / this.tempMedicationForm.quantity; // 计算单颗药的重量
+        } else {
+          console.error("Quantity or weight is invalid");
+          return 0; // 返回默认值
+        }
+      } else {
+        // 如果是更新药物，使用已经保存的 pillWeight
+        return pill.singleWeight || 0; // 防止 null 值导致问题
+      }
     },
 
     // Open the user information modal

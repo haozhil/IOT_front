@@ -3,7 +3,7 @@ module.exports = defineConfig({
   devServer: {
     client: {
       webSocketURL: {
-        hostname: 'de12-159-196-132-16.ngrok-free.app',  // ngrok 提供的外部域名
+        hostname: ' b9b7-159-196-132-23.ngrok-free.app',  // ngrok 提供的外部域名
         pathname: '/ws',  // WebSocket 的路径
         port: 443,        // 443 是 HTTPS 的标准端口
         protocol: 'wss'   // 使用安全的 WebSocket 协议
