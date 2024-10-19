@@ -433,21 +433,15 @@ button:disabled {
   margin-left: 12px;
 }
 
-/* 滑动过的部分 */
 .slider-demo-block .el-slider__bar {
   background: linear-gradient(to right, blue, red);
-  /* 左边为蓝，右边为红的渐变色 */
   height: 100%;
   border-radius: 5px;
-  /* 保持和轨道一样的圆角 */
 }
 
-/* 滑块样式 */
 .slider-demo-block .el-slider__button {
   background-color: white;
-  /* 设置滑块颜色 */
   border: 2px solid blue;
-  /* 滑块边框颜色 */
 }
 
 .temperature {
@@ -463,7 +457,6 @@ button:disabled {
   align-items: center;
   width: 100%;
   height: 400px;
-  /* 确保容器有足够的高度 */
 }
 
 .el-dropdown {
